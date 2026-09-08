@@ -286,9 +286,7 @@ export default function App() {
         <section id="contato" className="contact-section">
           <div className="contact-orbit" aria-hidden="true"><span>+</span></div>
           <div className="contact-intro reveal">
-            <span className="contact-kicker">TEM ALGO PARA CRIAR?</span>
             <h2>O que você<br /><span className="contact-outline-glow">tem em mente?</span></h2>
-            <p>Explore as ideias. Pode ser uma delas, uma mistura de várias ou algo que ainda nem tem nome.</p>
             <a className="contact-link" href="https://github.com/" target="_blank" rel="noreferrer">
               Vamos conversar <ArrowUpRight size={24} />
             </a>
