@@ -73,6 +73,7 @@ export default function Scene() {
     const camera = new THREE.PerspectiveCamera(40, host.clientWidth / host.clientHeight, 0.1, 100)
     camera.position.set(0, 0, 5.8)
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
+    renderer.setClearColor(0x000000, 0)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.7))
     renderer.setSize(host.clientWidth, host.clientHeight)
     host.appendChild(renderer.domElement)
@@ -113,7 +114,10 @@ export default function Scene() {
     group.add(earth)
     earth.add(new THREE.Mesh(
       new THREE.SphereGeometry(RADIUS, 64, 48),
-      new THREE.MeshBasicMaterial({ color: 0x091310 }),
+      new THREE.MeshBasicMaterial({
+        color: getComputedStyle(host).getPropertyValue('--bg').trim() || '#080a0c',
+        toneMapped: false,
+      }),
     ))
 
     const buffer = (values) => new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(values, 3))
