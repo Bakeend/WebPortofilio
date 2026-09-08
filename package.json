@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "framer-motion": "^13.2.0",
     "gsap": "latest",
     "lenis": "latest",
     "lucide-react": "latest",
@@ -17,6 +18,5 @@
     "react-dom": "latest",
     "three": "latest",
     "vite": "latest"
-  },
-  "devDependencies": {}
+  }
 }

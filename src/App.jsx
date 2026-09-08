@@ -2,20 +2,25 @@ import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Lenis from 'lenis'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowDownRight,
   ArrowUpRight,
   Bot,
   Braces,
   Boxes,
+  Code2,
   Database,
+  Globe2,
   Menu,
   Server,
   Sparkles,
+  Workflow,
   X,
 } from 'lucide-react'
 import Scene from './Scene.jsx'
 import ProjectsCarousel from './ProjectsCarousel.jsx'
+import HoverStack from './components/ui/hover-stack.jsx'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -23,14 +28,14 @@ const projects = [
   {
     name: 'OctoGames',
     image: '/images/projects/octogames.png',
-    description: 'Marketplace de jogos, itens e contas digitais, com anúncios, carrinho e perfis de vendedores.',
+    description: 'Marketplace de jogos, itens e contas digitais com anúncios, carrinho e perfis de vendedores.',
     icon: Bot,
     accent: 'blue',
   },
   {
     name: 'Pixel Store',
     image: '/images/projects/pixel-store.png',
-    description: 'Loja digital com foco em navegação rápida, identidade visual forte e integrações com a operação.',
+    description: 'Loja digital com navegação rápida, identidade visual própria e integrações usadas na operação.',
     icon: Boxes,
     accent: 'orange',
   },
@@ -43,9 +48,55 @@ const stack = [
   ['IA aplicada', 'Modelos locais · Agentes · RAG', Sparkles],
 ]
 
+const rotatingWords = ['SISTEMAS', 'BOTS', 'APIS', 'AUTOMAÇÕES']
+
+const projectIdeas = [
+  {
+    title: 'SITE',
+    description: 'Landing page, portfólio, loja ou aplicação web com uma experiência feita para o projeto.',
+    hint: 'WEB / PRODUTO',
+    icon: Globe2,
+  },
+  {
+    title: 'BOT',
+    description: 'Bots para Discord, comunidades e rotinas que precisam responder, organizar ou executar ações.',
+    hint: 'DISCORD / INTEGRAÇÕES',
+    icon: Bot,
+  },
+  {
+    title: 'API',
+    description: 'Back-end, integrações e serviços para conectar dados, aplicações e regras de negócio.',
+    hint: 'BACK-END / DADOS',
+    icon: Code2,
+  },
+  {
+    title: 'AUTOMAÇÃO',
+    description: 'Fluxos que tiram trabalho repetitivo do caminho e conectam ferramentas sem depender de tarefas manuais.',
+    hint: 'WORKFLOW / AGENTES',
+    icon: Workflow,
+  },
+  {
+    title: 'SISTEMA',
+    description: 'Uma solução completa para uma ideia específica, do banco e da lógica até a interface e o deploy.',
+    hint: 'FULL STACK / PRODUTO',
+    icon: Boxes,
+  },
+]
+
 export default function App() {
   const rootRef = useRef(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [wordIndex, setWordIndex] = useState(0)
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const interval = window.setInterval(() => {
+      setWordIndex((current) => (current + 1) % rotatingWords.length)
+    }, 4000)
+
+    return () => window.clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     const media = gsap.matchMedia()
@@ -96,7 +147,7 @@ export default function App() {
 
     const ctx = gsap.context(() => {
       gsap.from('.nav', { y: -30, opacity: 0, duration: 0.8, ease: 'power3.out' })
-      gsap.from('.hero-title .line, .hero-copy, .hero-actions', {
+      gsap.from('.hero-title, .hero-copy, .hero-actions', {
         y: 42,
         opacity: 0,
         duration: 0.9,
@@ -164,13 +215,24 @@ export default function App() {
           <div className="hero-copywrap">
             <h1 className="hero-title">
               <span className="line">EU CONSTRUO</span>
-              <span className="line outline outline-glow">
-                SISTEMAS
+              <span className="line rotating-word-wrap" aria-live="polite">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={rotatingWords[wordIndex]}
+                    className="outline outline-glow rotating-word"
+                    initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: -30, filter: 'blur(10px)' }}
+                    transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    {rotatingWords[wordIndex]}
+                  </motion.span>
+                </AnimatePresence>
               </span>
               <span className="line">QUE FUNCIONAM.</span>
             </h1>
             <p className="hero-copy">
-              Back-end, bots, automações, IA aplicada e produtos digitais. Gosto de pegar uma ideia bagunçada e transformar em algo que dá para usar.
+              Faço projetos de back-end, bots, automações, IA aplicada e produtos digitais. Normalmente começo com uma ideia meio bagunçada e vou montando até virar algo que dá para usar.
             </p>
             <div className="hero-actions">
               <button className="primary-button" onClick={() => goTo('#projetos')}>
@@ -183,7 +245,7 @@ export default function App() {
 
         <section className="section projects-section" id="projetos">
           <div className="section-heading reveal">
-            <h2>Projetos que nasceram<br />de problemas reais.</h2>
+            <h2>Projetos que comecei<br />para resolver alguma coisa.</h2>
           </div>
           <ProjectsCarousel projects={projects} />
         </section>
@@ -191,12 +253,12 @@ export default function App() {
         <section className="section about-section" id="sobre">
           <div className="about-index reveal">02</div>
           <div className="about-copy reveal">
-            <h2>Eu aprendo construindo.</h2>
+            <h2>Aprendo fazendo.</h2>
             <p className="big-copy">
-              Meu portfólio não é uma coleção de exercícios. São projetos que comecei porque queria resolver algo: organizar minha rotina, criar uma loja melhor, automatizar uma comunidade ou testar modelos de IA no meu próprio hardware.
+              Cada projeto daqui começou por uma necessidade minha: organizar minha rotina, criar uma loja melhor, automatizar uma comunidade ou testar modelos de IA no meu próprio hardware.
             </p>
             <p className="small-copy">
-              Curso Ciência da Computação e tenho interesse especial por back-end. Gosto de entender o sistema inteiro — interface, API, banco, infraestrutura e o que acontece quando alguma parte quebra.
+              Curso Ciência da Computação e me interesso principalmente por back-end. Gosto de entender o sistema inteiro: interface, API, banco, infraestrutura e o que acontece quando alguma parte quebra.
             </p>
           </div>
           <div className="about-terminal reveal">
@@ -207,7 +269,7 @@ export default function App() {
 
         <section className="section stack-section" id="stack">
           <div className="section-heading stack-heading reveal">
-            <h2>Da ideia ao deploy.</h2>
+            <h2>O que uso nos projetos.</h2>
           </div>
           <div className="stack-list">
             {stack.map(([title, items, Icon]) => (
@@ -221,12 +283,19 @@ export default function App() {
           </div>
         </section>
 
-        <section className="contact-section">
+        <section id="contato" className="contact-section">
           <div className="contact-orbit" aria-hidden="true"><span>+</span></div>
-          <h2 className="reveal">Tem uma ideia?<br /><span className="contact-outline-glow">VAMOS CONSTRUIR.</span></h2>
-          <a className="contact-link reveal" href="https://github.com/" target="_blank" rel="noreferrer">
-            github.com <ArrowUpRight size={24} />
-          </a>
+          <div className="contact-intro reveal">
+            <span className="contact-kicker">TEM ALGO PARA CRIAR?</span>
+            <h2>O que você<br /><span className="contact-outline-glow">tem em mente?</span></h2>
+            <p>Explore as ideias. Pode ser uma delas, uma mistura de várias ou algo que ainda nem tem nome.</p>
+            <a className="contact-link" href="https://github.com/" target="_blank" rel="noreferrer">
+              Vamos conversar <ArrowUpRight size={24} />
+            </a>
+          </div>
+          <div className="contact-stack-wrap reveal">
+            <HoverStack items={projectIdeas} />
+          </div>
         </section>
       </main>
     </div>
