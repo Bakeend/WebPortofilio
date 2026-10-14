@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Lenis from 'lenis'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -18,35 +18,13 @@ import {
   Workflow,
   X,
 } from 'lucide-react'
-import Scene from './Scene.jsx'
+import Globe from './Globe.jsx'
+import { profile, technologies } from './data/profile.js'
+import { projects } from './data/projects.js'
 import ProjectsCarousel from './ProjectsCarousel.jsx'
 import HoverStack from './components/ui/hover-stack.jsx'
 
 gsap.registerPlugin(ScrollTrigger)
-
-const projects = [
-  {
-    name: 'OctoGames',
-    image: '/images/projects/octogames.png',
-    description: 'Marketplace de jogos, itens e contas digitais com anúncios, carrinho e perfis de vendedores.',
-    icon: Bot,
-    accent: 'blue',
-  },
-  {
-    name: 'Pixel Store',
-    image: '/images/projects/pixel-store.png',
-    description: 'Loja digital com navegação rápida, identidade visual própria e integrações usadas na operação.',
-    icon: Boxes,
-    accent: 'orange',
-  },
-]
-
-const stack = [
-  ['Back-end', 'Python · Node.js · APIs', Braces],
-  ['Dados', 'PostgreSQL · Supabase · Room', Database],
-  ['Infra', 'Docker · Linux · Deploy', Server],
-  ['IA aplicada', 'Modelos locais · Agentes · RAG', Sparkles],
-]
 
 const rotatingWords = ['SISTEMAS', 'BOTS', 'APIS', 'AUTOMAÇÕES']
 
@@ -87,16 +65,37 @@ export default function App() {
   const rootRef = useRef(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [wordIndex, setWordIndex] = useState(0)
+  const reducedMotion = useReducedMotion()
+  const [category, setCategory] = useState('Todos')
+  const filteredProjects = useMemo(() => category === 'Todos' ? projects : projects.filter(project => project.category === category), [category])
+  const menuRef = useRef(null)
+  const menuButtonRef = useRef(null)
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!menuOpen) return
+    menuRef.current?.querySelector('button')?.focus()
+    const escape = (event) => {
+      if (event.key === 'Escape') { setMenuOpen(false); menuButtonRef.current?.focus() }
+    }
+    const desktop = window.matchMedia('(min-width: 901px)')
+    const close = () => { if (desktop.matches) setMenuOpen(false) }
+    const outside = (event) => { if (!event.target.closest('.nav, .mobile-menu')) setMenuOpen(false) }
+    document.addEventListener('keydown', escape)
+    document.addEventListener('pointerdown', outside)
+    desktop.addEventListener('change', close)
+    return () => { document.removeEventListener('keydown', escape); document.removeEventListener('pointerdown', outside); desktop.removeEventListener('change', close) }
+  }, [menuOpen])
+
+  useEffect(() => {
+    if (reducedMotion) return
 
     const interval = window.setInterval(() => {
+      if (document.hidden) return
       setWordIndex((current) => (current + 1) % rotatingWords.length)
     }, 4000)
 
     return () => window.clearInterval(interval)
-  }, [])
+  }, [reducedMotion])
 
   useEffect(() => {
     const media = gsap.matchMedia()
@@ -134,7 +133,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (reducedMotion) return
 
     const lenis = new Lenis({ duration: 1.05, smoothWheel: true })
     let rafId
@@ -174,17 +173,19 @@ export default function App() {
       lenis.destroy()
       ctx.revert()
     }
-  }, [])
+  }, [reducedMotion])
 
   const goTo = (id) => {
     setMenuOpen(false)
-    document.querySelector(id)?.scrollIntoView({ behavior: 'smooth' })
+    document.querySelector(id)?.scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth' })
+    document.querySelector(id)?.focus({ preventScroll: true })
   }
 
   return (
     <div ref={rootRef} className="app-shell">
-      <div className="noise" />
-      <nav className="nav">
+      <a className="skip-link" href="#main">Pular para o conteúdo</a>
+      <div className="noise" aria-hidden="true" />
+      <nav className="nav" aria-label="Navegação principal">
         <button className="brand" onClick={() => goTo('#home')} aria-label="Ir para o início">
           <span className="brand-mark" aria-hidden="true"><img src="/images/brand/bakeend-logo.png" alt="" draggable={false} /></span>
           <span>BAKEEND</span>
@@ -193,37 +194,40 @@ export default function App() {
           <button onClick={() => goTo('#projetos')}>Projetos</button>
           <button onClick={() => goTo('#sobre')}>Sobre</button>
           <button onClick={() => goTo('#stack')}>Stack</button>
+          <button onClick={() => goTo('#contato')}>Contato</button>
         </div>
-        <a className="nav-cta" href="https://github.com/" target="_blank" rel="noreferrer">
+        <a className="nav-cta" href={profile.github} target="_blank" rel="noreferrer">
           GitHub <ArrowUpRight size={15} />
         </a>
-        <button className="menu-button" onClick={() => setMenuOpen((v) => !v)} aria-label="Abrir menu">
+        <button ref={menuButtonRef} className="menu-button" onClick={() => setMenuOpen((v) => !v)} aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuOpen} aria-controls="mobile-menu">
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </nav>
 
       {menuOpen && (
-        <div className="mobile-menu">
+        <div id="mobile-menu" ref={menuRef} className="mobile-menu">
           <button onClick={() => goTo('#projetos')}>Projetos</button>
           <button onClick={() => goTo('#sobre')}>Sobre</button>
           <button onClick={() => goTo('#stack')}>Stack</button>
+          <button onClick={() => goTo('#contato')}>Contato</button>
         </div>
       )}
 
-      <main>
-        <section className="hero" id="home">
+      <main id="main" tabIndex={-1}>
+        <section className="hero" id="home" tabIndex={-1}>
           <div className="hero-copywrap">
-            <h1 className="hero-title">
+            <p className="hero-role">{profile.role}</p>
+            <h1 className="hero-title" aria-label="Eu construo sistemas, bots, APIs e automações que funcionam.">
               <span className="line">EU CONSTRUO</span>
-              <span className="line rotating-word-wrap" aria-live="polite">
+              <span className="line rotating-word-wrap" aria-hidden="true">
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.span
                     key={rotatingWords[wordIndex]}
                     className="outline outline-glow rotating-word"
-                    initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+                    initial={reducedMotion ? false : { opacity: 0, y: 30, filter: 'blur(10px)' }}
                     animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                     exit={{ opacity: 0, y: -30, filter: 'blur(10px)' }}
-                    transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: reducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
                   >
                     {rotatingWords[wordIndex]}
                   </motion.span>
@@ -232,70 +236,77 @@ export default function App() {
               <span className="line">QUE FUNCIONAM.</span>
             </h1>
             <p className="hero-copy">
-              Faço projetos de back-end, bots, automações, IA aplicada e produtos digitais. Normalmente começo com uma ideia meio bagunçada e vou montando até virar algo que dá para usar.
+              {profile.description}
             </p>
             <div className="hero-actions">
               <button className="primary-button" onClick={() => goTo('#projetos')}>
-                Ver projetos <ArrowDownRight size={18} />
+                Explorar projetos <ArrowDownRight size={18} />
               </button>
+              <a className="text-button" href={profile.github} target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={16} /></a>
+              <button className="text-button" onClick={() => goTo('#contato')}>Entrar em contato</button>
             </div>
           </div>
-          <Scene />
+          <Globe />
         </section>
 
-        <section className="section projects-section" id="projetos">
+        <section className="section projects-section" id="projetos" tabIndex={-1}>
           <div className="section-heading reveal">
-            <h2>Projetos que comecei<br />para resolver alguma coisa.</h2>
+            <h2>Ideias reais.<br />Projetos em construção.</h2>
           </div>
-          <ProjectsCarousel projects={projects} />
+          <div className="project-filters" role="group" aria-label="Filtrar projetos por categoria">{['Todos', 'Web', 'IA'].map(value => <button type="button" key={value} aria-pressed={category === value} onClick={() => setCategory(value)}>{value}</button>)}</div>
+          <ProjectsCarousel key={category} projects={filteredProjects} />
         </section>
 
-        <section className="section about-section" id="sobre">
-          <div className="about-index reveal">02</div>
+        <section className="section about-section" id="sobre" tabIndex={-1}>
+          <div className="about-index reveal" aria-hidden="true">02</div>
           <div className="about-copy reveal">
             <h2>Aprendo fazendo.</h2>
             <p className="big-copy">
-              Cada projeto daqui começou por uma necessidade minha: organizar minha rotina, criar uma loja melhor, automatizar uma comunidade ou testar modelos de IA no meu próprio hardware.
+              Sou estudante de Ciência da Computação e aprendo construindo. Meu maior interesse está no back-end: entender os dados, a lógica e as decisões que fazem um sistema funcionar.
             </p>
             <p className="small-copy">
-              Curso Ciência da Computação e me interesso principalmente por back-end. Gosto de entender o sistema inteiro: interface, API, banco, infraestrutura e o que acontece quando alguma parte quebra.
+              Gosto de investigar erros, testar ferramentas e entender como as partes se conectam. Linux, infraestrutura e IA fazem parte do que estudo. Busco uma oportunidade de estágio ou uma posição inicial para evoluir com uma equipe e construir software útil.
             </p>
           </div>
           <div className="about-terminal reveal">
             <div className="terminal-bar"><span /><span /><span /></div>
-            <pre><code><span className="term-muted">$</span> whoami{`\n`}<span className="term-lime">bakeend</span>{`\n\n`}<span className="term-muted">$</span> focus --current{`\n`}backend / systems / product{`\n\n`}<span className="term-muted">$</span> status{`\n`}<span className="term-lime">always building_</span></code></pre>
+            <pre><code><span className="term-muted">$</span> whoami{`\n`}<span className="term-lime">bakeend</span>{`\n\n`}<span className="term-muted">$</span> focus --current{`\n`}back-end / Linux / IA{`\n\n`}<span className="term-muted">$</span> status{`\n`}<span className="term-lime">aprendendo e construindo_</span></code></pre>
           </div>
         </section>
 
-        <section className="section stack-section" id="stack">
+        <section className="section stack-section" id="stack" tabIndex={-1}>
           <div className="section-heading stack-heading reveal">
-            <h2>O que uso nos projetos.</h2>
+            <h2>Ferramentas e próximos passos.</h2>
           </div>
           <div className="stack-list">
-            {stack.map(([title, items, Icon]) => (
+            {technologies.map(({title, practice, study}, index) => {
+              const Icon = [Braces, Code2, Database, Server, Sparkles][index]
+              return (
               <div className="stack-row reveal" key={title}>
                 <span className="stack-icon"><Icon size={22} /></span>
                 <h3>{title}</h3>
-                <p>{items}</p>
+                <div className="stack-details">{practice && <p><span>Em projetos</span>{practice}</p>}{study && <p><span>Em estudo</span>{study}</p>}</div>
                 <ArrowUpRight size={20} />
               </div>
-            ))}
+            )})}
           </div>
         </section>
 
-        <section id="contato" className="contact-section">
+        <section id="contato" tabIndex={-1} className="contact-section">
           <div className="contact-orbit" aria-hidden="true"><span>+</span></div>
           <div className="contact-intro reveal">
             <h2>O que você<br /><span className="contact-outline-glow">tem em mente?</span></h2>
-            <a className="contact-link" href="https://github.com/" target="_blank" rel="noreferrer">
-              Vamos conversar <ArrowUpRight size={24} />
+            <a className="contact-link" href={profile.github} target="_blank" rel="noreferrer">
+              Encontrar no GitHub <ArrowUpRight size={24} />
             </a>
           </div>
           <div className="contact-stack-wrap reveal">
+            <p className="contact-copy">Tipos de solução que gosto de explorar. Tem uma ideia ou uma oportunidade em back-end? Conheça meu trabalho e meu perfil no GitHub.</p>
             <HoverStack items={projectIdeas} />
           </div>
         </section>
       </main>
+      <footer className="site-footer"><span>© {new Date().getFullYear()} Bakeend</span><span>Aprendendo. Construindo. Evoluindo.</span><a href={profile.github} target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={14} /></a><button onClick={() => goTo('#contato')}>Contato</button></footer>
     </div>
   )
 }

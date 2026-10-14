@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import land from './data/land.json'
@@ -64,27 +64,32 @@ const geography = makeGeography()
 
 export default function Scene() {
   const mountRef = useRef(null)
+  const [unavailable, setUnavailable] = useState(false)
 
 
   useEffect(() => {
     const host = mountRef.current
-    if (!host) return
+    if (!host || unavailable) return
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(40, host.clientWidth / host.clientHeight, 0.1, 100)
     camera.position.set(0, 0, 5.8)
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
+    let renderer
+    try { renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' }) }
+    catch { setUnavailable(true); return }
+
     renderer.setClearColor(0x000000, 0)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.7))
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     renderer.setSize(host.clientWidth, host.clientHeight)
     host.appendChild(renderer.domElement)
     const canvas = renderer.domElement
     canvas.tabIndex = 0
-    canvas.setAttribute('role', 'img')
+    canvas.setAttribute('role', 'application')
     canvas.setAttribute('aria-label', 'Terra interativa. Arraste para girar, use scroll ou pinça para zoom. No teclado: setas para girar, mais e menos para zoom, Home para restaurar.')
     canvas.setAttribute('data-lenis-prevent', '')
     const controls = new OrbitControls(camera, canvas)
     controls.enablePan = false
-    controls.enableDamping = true
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    controls.enableDamping = !motion.matches
     controls.dampingFactor = 0.07
     controls.rotateSpeed = 0.65
     controls.zoomSpeed = 0.65
@@ -113,7 +118,7 @@ export default function Scene() {
     earth.rotation.z = -0.12
     group.add(earth)
     earth.add(new THREE.Mesh(
-      new THREE.SphereGeometry(RADIUS, 64, 48),
+      new THREE.SphereGeometry(RADIUS, 48, 32),
       new THREE.MeshBasicMaterial({
         color: getComputedStyle(host).getPropertyValue('--bg').trim() || '#080a0c',
         toneMapped: false,
@@ -133,7 +138,7 @@ export default function Scene() {
     }
     earth.add(new THREE.LineSegments(buffer(grid), new THREE.LineBasicMaterial({ color: 0x689a50, transparent: true, opacity: 0.17 })))
 
-    const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(RADIUS * 1.045, 64, 48), new THREE.ShaderMaterial({
+    const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(RADIUS * 1.045, 48, 32), new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -165,6 +170,7 @@ export default function Scene() {
       earth.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0xb7ff41, transparent: true, opacity: 0.28 })))
       const packet = new THREE.Mesh(nodeGeometry, nodeMaterial)
       packet.scale.setScalar(0.65)
+      packet.position.copy(points[0])
       earth.add(packet)
       return { packet, points }
     })
@@ -176,6 +182,7 @@ export default function Scene() {
     orbit.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(orbitPoints), new THREE.LineBasicMaterial({ color: 0x9ab68c, transparent: true, opacity: 0.3 })))
     const satellite = new THREE.Mesh(nodeGeometry, nodeMaterial)
     orbit.add(satellite)
+    satellite.position.set(1.77, 0, 0)
 
     const positions = []
     for (let i = 0; i < 650; i++) {
@@ -187,7 +194,6 @@ export default function Scene() {
     const stars = new THREE.Points(buffer(positions), new THREE.PointsMaterial({ size: 0.009, color: 0xc9d1d9, transparent: true, opacity: 0.36 }))
     scene.add(stars)
 
-    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const reset = () => {
       controls.reset()
       earth.rotation.set(0, 0.75, -0.12)
@@ -198,7 +204,7 @@ export default function Scene() {
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'Home'].includes(event.key)) return
       event.preventDefault()
       resumeAt = performance.now() + 2500
-      if (event.key === 'Home') return reset()
+      if (event.key === 'Home') { reset(); renderOnce(); return }
       if (event.key === 'ArrowLeft') earth.rotation.y -= 0.12
       if (event.key === 'ArrowRight') earth.rotation.y += 0.12
       if (event.key === 'ArrowUp') earth.rotation.x -= 0.12
@@ -207,12 +213,16 @@ export default function Scene() {
         camera.position.setLength(THREE.MathUtils.clamp(camera.position.length() * (event.key === '-' ? 1.1 : 0.9), controls.minDistance, controls.maxDistance))
       }
       controls.update()
+      renderOnce()
     }
     canvas.addEventListener('keydown', onKeyDown)
-    let frame
+    let frame = null
+    let visible = false
     let previous = performance.now()
     let elapsed = 0
     const animate = (now) => {
+      frame = null
+      if (!visible || document.hidden || motion.matches) return
       const delta = Math.max(0, Math.min((now - previous) / 1000, 0.05))
       previous = now
       if (!motion.matches && !document.hidden) elapsed += delta
@@ -228,17 +238,41 @@ export default function Scene() {
       if (!document.hidden) renderer.render(scene, camera)
       frame = requestAnimationFrame(animate)
     }
-    frame = requestAnimationFrame(animate)
+    const renderOnce = () => { if (visible && !document.hidden) renderer.render(scene, camera) }
+    const synchronize = () => {
+      if (frame !== null) cancelAnimationFrame(frame)
+      frame = null
+      controls.enableDamping = !motion.matches
+      previous = performance.now()
+      if (visible && !document.hidden) {
+        renderOnce()
+        if (!motion.matches) frame = requestAnimationFrame(animate)
+      }
+    }
+    const renderInteraction = () => { if (motion.matches) renderOnce() }
+    controls.addEventListener('change', renderInteraction)
+    const visibilityObserver = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; synchronize() })
+    visibilityObserver.observe(host)
+    document.addEventListener('visibilitychange', synchronize)
+    motion.addEventListener('change', synchronize)
+    const contextLost = event => { event.preventDefault(); setUnavailable(true) }
+    canvas.addEventListener('webglcontextlost', contextLost)
     const observer = new ResizeObserver(() => {
       if (!host.clientWidth || !host.clientHeight) return
       camera.aspect = host.clientWidth / host.clientHeight
       camera.updateProjectionMatrix()
       renderer.setSize(host.clientWidth, host.clientHeight)
+      renderOnce()
     })
     observer.observe(host)
 
     return () => {
       cancelAnimationFrame(frame)
+      visibilityObserver.disconnect()
+      document.removeEventListener('visibilitychange', synchronize)
+      motion.removeEventListener('change', synchronize)
+      controls.removeEventListener('change', renderInteraction)
+      canvas.removeEventListener('webglcontextlost', contextLost)
       canvas.removeEventListener('keydown', onKeyDown)
       controls.removeEventListener('start', onStart)
       controls.removeEventListener('end', onEnd)
@@ -257,10 +291,11 @@ export default function Scene() {
       renderer.dispose()
       if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement)
     }
-  }, [])
+  }, [unavailable])
 
   return (
-    <div className="hero-scene" ref={mountRef} role="group" aria-label="Planeta Terra interativo">
+    <div className="globe-mount" ref={mountRef} role="group" aria-label="Planeta Terra interativo">
+      {unavailable && <div className="globe-fallback" role="img" aria-label="Representação estática da Terra"><span>◎</span><small>IDEIAS CONECTADAS</small></div>}
     </div>
   )
 }

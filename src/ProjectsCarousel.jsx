@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-import { ArrowLeft, ArrowRight, WalletCards } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, X } from 'lucide-react'
 import './ProjectsCarousel.css'
 
 function ProjectArtwork({ project }) {
@@ -8,16 +8,11 @@ function ProjectArtwork({ project }) {
     <div className="project-art art-screenshot">
       <div className="project-preview">
         <div className="preview-bar" aria-hidden="true"><i /><i /><i /><span>{project.name}</span></div>
-        <img src={project.image} alt={`Captura de tela do projeto ${project.name}`} loading="lazy" decoding="async" draggable={false} />
+        <img src={project.image} alt={`Captura de tela do projeto ${project.name}`} width={project.width} height={project.height} loading="lazy" decoding="async" draggable={false} />
       </div>
     </div>
   )
-  return (
-    <div className="project-art art-organizei" aria-hidden="true">
-      <div className="planner-sheet"><div className="planner-top"><WalletCards size={20} /><span>organizei</span><i /></div><h4>Espaço para<br />o que importa.</h4><div className="planner-week">{'DSTQQSS'.split('').map((day, i) => <span key={i} className={i === 3 ? 'selected' : ''}>{day}<b>{12 + i}</b></span>)}</div><div className="planner-task"><i /> Planejar a semana<span>01</span></div><div className="planner-task"><i /> Tirar ideias do papel<span>02</span></div><div className="planner-task"><i /> Organizar as finanças<span>03</span></div></div>
-      <div className="planner-note">Menos caos.<br /><b>Mais clareza.</b><span>↗</span></div>
-    </div>
-  )
+  return <div className="project-art project-concept" aria-label="Identidade tipográfica de Lume; não é uma captura de tela"><BookOpen size={56} aria-hidden="true" /><strong>Lume</strong><span>Clareza para aprender.</span><small>SKILL DE ESTUDO · IA</small></div>
 }
 
 export default function ProjectsCarousel({ projects }) {
@@ -25,6 +20,10 @@ export default function ProjectsCarousel({ projects }) {
   const trackRef = useRef(null)
   const navigateRef = useRef(() => {})
   const [active, setActive] = useState(0)
+  const [selected, setSelected] = useState(null)
+  const dialogRef = useRef(null)
+  const openDetails = (project) => setSelected(project)
+  useEffect(() => { if (selected && !dialogRef.current.open) dialogRef.current.showModal() }, [selected])
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current
@@ -47,7 +46,7 @@ export default function ProjectsCarousel({ projects }) {
     }
     navigateRef.current = navigate
     const resize = new ResizeObserver(() => {
-      step = slides[1].offsetLeft - slides[0].offsetLeft
+      step = slides.length > 1 ? slides[1].offsetLeft - slides[0].offsetLeft : viewport.clientWidth
       navigate(current, true)
     })
     resize.observe(viewport)
@@ -93,10 +92,11 @@ export default function ProjectsCarousel({ projects }) {
       window.removeEventListener('pointercancel', end)
       navigateRef.current = () => {}
     }
-  }, [projects.length])
+  }, [projects])
 
   return (
     <div className="projects-carousel" role="region" aria-roledescription="carrossel" aria-label="Projetos selecionados" onKeyDown={(event) => {
+      if (event.target.closest('dialog')) return
       if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
         event.preventDefault()
         navigateRef.current(event.key === 'Home' ? 0 : event.key === 'End' ? projects.length - 1 : active + (event.key === 'ArrowRight' ? 1 : -1))
@@ -106,7 +106,7 @@ export default function ProjectsCarousel({ projects }) {
         <div className="carousel-track" ref={trackRef}>
           {projects.map((project, index) => (
             <article key={project.name} className={`project-slide slide-${project.accent} ${active === index ? 'is-active' : ''}`} role="group" aria-roledescription="slide" aria-label={`${index + 1} de ${projects.length}: ${project.name}`}>
-              <div className="slide-copy"><div className="slide-category"><span>{String(index + 1).padStart(2, '0')} /</span>{project.type}</div><h3>{project.name}</h3><p>{project.description}</p><div className="slide-tags">{(project.tags ?? []).map(tag => <span key={tag}>{tag}</span>)}</div><div className="slide-signature"><span className="signature-line" />IDEIA → CÓDIGO → PRODUTO</div></div>
+              <div className="slide-copy"><div className="slide-category"><span>{String(index + 1).padStart(2, '0')} /</span>{project.type}</div><h3>{project.name}</h3><p>{project.description}</p><div className="slide-tags">{(project.tags ?? []).map(tag => <span key={tag}>{tag}</span>)}</div>{project.status && <span className="project-status">{project.status}</span>}<button type="button" className="project-details-button" onClick={() => openDetails(project)}>Conhecer o projeto <ArrowUpRight size={16} /></button><div className="slide-signature"><span className="signature-line" />IDEIA → CÓDIGO → PRODUTO</div></div>
               <ProjectArtwork project={project} />
             </article>
           ))}
@@ -117,6 +117,12 @@ export default function ProjectsCarousel({ projects }) {
         <span className="carousel-counter" aria-live="polite" aria-atomic="true"><b>{String(active + 1).padStart(2, '0')}</b> / {String(projects.length).padStart(2, '0')}<span className="sr-only"> — {projects[active].name}</span></span>
         <div className="carousel-arrows"><button type="button" aria-label="Projeto anterior" disabled={active === 0} onClick={() => navigateRef.current(active - 1)}><ArrowLeft size={21} /></button><button type="button" aria-label="Próximo projeto" disabled={active === projects.length - 1} onClick={() => navigateRef.current(active + 1)}><ArrowRight size={21} /></button></div>
       </div>
+      <dialog data-lenis-prevent ref={dialogRef} className="project-dialog" onClose={() => setSelected(null)} aria-labelledby="project-dialog-title" onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close() }}>
+        <div className="dialog-body">
+          <button className="dialog-close" type="button" autoFocus aria-label="Fechar detalhes" onClick={() => dialogRef.current.close()}><X size={22} /></button>
+          {selected && <><p className="eyebrow">{selected.type}{selected.status && ` · ${selected.status}`}</p><h2 id="project-dialog-title">{selected.name}</h2><p>{selected.description}</p><h3>O problema</h3><p>{selected.problem}</p><h3>O que o projeto apresenta</h3><ul>{selected.features.map(feature => <li key={feature}>{feature}</li>)}</ul><h3>{selected.source ? 'Tecnologias e ferramentas' : 'Área do projeto'}</h3><div className="slide-tags">{selected.tags.map(tag => <span key={tag}>{tag}</span>)}</div>{selected.image && <img src={selected.image} alt={`Captura do projeto ${selected.name}`} width={selected.width} height={selected.height} loading="lazy" />}<p className="project-note">{selected.note}</p>{selected.source && <a className="contact-link" href={selected.source} target="_blank" rel="noreferrer">Ver repositório público <ArrowUpRight size={18} /></a>}{selected.demo && <a className="contact-link" href={selected.demo} target="_blank" rel="noreferrer">Abrir demonstração <ArrowUpRight size={18} /></a>}</>}
+        </div>
+      </dialog>
     </div>
   )
 }

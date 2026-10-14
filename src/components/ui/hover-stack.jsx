@@ -1,3 +1,4 @@
+import { profile } from '../../data/profile.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 
@@ -70,7 +71,7 @@ export default function HoverStack({ items }) {
           <a
             key={item.title}
             className={`hover-stack-item${isActive ? ' is-active' : ''}`}
-            href="https://github.com/"
+            href={profile.github}
             target="_blank"
             rel="noreferrer"
             aria-label={`${item.title}: ${item.description}`}
